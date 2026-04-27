@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fee Auction Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #f8f9fc;
+  --surface: #ffffff;
+  --border: #e8eaef;
+  --border-strong: #d0d4de;
+  --text: #1a1d2e;
+  --text-2: #5a6075;
+  --text-3: #9198b0;
+  --blue: #3b6ff5;
+  --blue-bg: #eef2ff;
+  --green: #16a34a;
+  --green-bg: #f0fdf4;
+  --red: #dc2626;
+  --red-bg: #fef2f2;
+  --orange: #ea580c;
+  --orange-bg: #fff7ed;
+  --yellow: #d97706;
+  --yellow-bg: #fffbeb;
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'Inter', sans-serif;
+  --radius: 12px;
+  --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.07), 0 2px 4px rgba(0,0,0,.04);
+}
+
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── HEADER ─────────────────────────────────────────────────────────────── */
+.header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.header-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.header-title .icon {
+  width: 32px;
+  height: 32px;
+  background: var(--yellow-bg);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+.header-title h1 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+.header-title p {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 1px;
+}
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.live-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--green-bg);
+  border: 1px solid #bbf7d0;
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 12px;
+  color: var(--green);
+  font-weight: 500;
+}
+.live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .4; }
+}
+.refresh-btn {
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  color: var(--text-2);
+  font-family: var(--sans);
+  font-size: 13px;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: all .15s;
+  font-weight: 500;
+}
+.refresh-btn:hover { background: var(--bg); border-color: var(--blue); color: var(--blue); }
+
+/* ── PAGE ───────────────────────────────────────────────────────────────── */
+.page { padding: 28px 32px; max-width: 1200px; margin: 0 auto; }
+
+/* ── STAT CARDS ─────────────────────────────────────────────────────────── */
+.stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 24px; }
+
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  box-shadow: var(--shadow);
+}
+.stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--text-3);
+  margin-bottom: 8px;
+}
+.stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+  font-family: var(--mono);
+  letter-spacing: -.02em;
+}
+.stat-value.yellow { color: var(--yellow); }
+.stat-value.green  { color: var(--green); }
+.stat-value.red    { color: var(--red); }
+.stat-value.blue   { color: var(--blue); }
+.stat-sub {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 5px;
+}
+
+/* ── MAIN CARD ──────────────────────────────────────────────────────────── */
+.main-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  margin-bottom: 24px;
+  overflow: hidden;
+}
+.main-card-inner {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+/* DECAY SIDE */
+.decay-side {
+  padding: 28px 32px;
+  border-right: 1px solid var(--border);
+}
+.decay-side h2 {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--text-3);
+  margin-bottom: 20px;
+}
+.decay-track {
+  height: 8px;
+  background: var(--bg);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+}
+.decay-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #16a34a, #d97706, #ea580c, #dc2626);
+  transition: width 2s ease;
+}
+.decay-axis {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-3);
+  margin-bottom: 28px;
+}
+
+.price-display { margin-bottom: 8px; }
+.price-display .label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-3);
+  margin-bottom: 6px;
+}
+.price-display .value {
+  font-size: 40px;
+  font-weight: 700;
+  font-family: var(--mono);
+  letter-spacing: -.03em;
+  color: var(--text);
+  line-height: 1;
+}
+.price-display .unit {
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--text-3);
+  margin-left: 4px;
+}
+.price-meta {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 6px;
+  margin-bottom: 16px;
+}
+
+.verdict {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.verdict.good    { background: var(--green-bg); color: var(--green); border: 1px solid #bbf7d0; }
+.verdict.neutral { background: var(--yellow-bg); color: var(--yellow); border: 1px solid #fde68a; }
+.verdict.wait    { background: var(--red-bg); color: var(--red); border: 1px solid #fecaca; }
+
+/* INFO SIDE */
+.info-side {
+  padding: 28px 32px;
+}
+.info-side h2 {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--text-3);
+  margin-bottom: 16px;
+}
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.info-row:last-child { border-bottom: none; }
+.info-key { font-size: 13px; color: var(--text-2); }
+.info-val {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  font-family: var(--mono);
+  text-align: right;
+}
+.info-val.yellow { color: var(--yellow); }
+
+/* ── BOTTOM GRID ────────────────────────────────────────────────────────── */
+.bottom-grid { display: grid; grid-template-columns: 1fr 380px; gap: 20px; }
+
+/* HISTORY */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.panel-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+.panel-sub {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+thead th {
+  text-align: left;
+  padding: 10px 16px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--text-3);
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+tbody td {
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-2);
+}
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: var(--bg); }
+td.mono { font-family: var(--mono); font-size: 12px; }
+td.good   { color: var(--green); font-weight: 600; font-family: var(--mono); }
+td.neutral{ color: var(--yellow); font-weight: 600; font-family: var(--mono); }
+td.bad    { color: var(--red); font-weight: 600; font-family: var(--mono); }
+.tx-link  { color: var(--blue); text-decoration: none; font-size: 12px; font-weight: 500; }
+.tx-link:hover { text-decoration: underline; }
+
+/* RIGHT COLUMN */
+.right-col { display: flex; flex-direction: column; gap: 16px; }
+
+/* CHART */
+.chart-body { padding: 16px 20px; }
+.bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 100px;
+  margin-bottom: 4px;
+}
+.bw { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.bb { width: 100%; border-radius: 4px 4px 0 0; min-height: 2px; transition: height .4s ease; background: var(--blue); opacity: .8; }
+.bw:hover .bb { opacity: 1; }
+.bl { font-size: 9px; color: var(--text-3); text-align: center; }
+.bv { font-size: 9px; color: var(--text-2); font-family: var(--mono); }
+
+/* HALVINGS */
+.halvings-body { padding: 4px 20px 12px; }
+.hv-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+}
+.hv-row:last-child { border-bottom: none; }
+.hv-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.hv-label { font-size: 12px; color: var(--text-2); flex: 1; }
+.hv-date  { font-size: 11px; color: var(--text-3); margin-right: 8px; }
+.hv-price { font-size: 12px; font-weight: 600; color: var(--text); font-family: var(--mono); }
+
+/* LOADING */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  color: var(--text-3);
+  font-size: 13px;
+  gap: 8px;
+}
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-title">
+    <div class="icon">🔥</div>
+    <div>
+      <h1>FilecoinPay Fee Auction Monitor</h1>
+      <p>Dutch auction · USDFC → FIL burn · Filecoin mainnet</p>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="live-badge">
+      <div class="live-dot"></div>
+      <span id="last-update">Loading...</span>
+    </div>
+    <button class="refresh-btn" onclick="loadAll()">↺ Refresh</button>
+  </div>
+</div>
+
+<div class="page">
+
+  <!-- STAT CARDS -->
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-label">USDFC in pool</div>
+      <div class="stat-value yellow" id="s-pool">—</div>
+      <div class="stat-sub" id="ss-pool">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Current bid price</div>
+      <div class="stat-value blue" id="s-price">—</div>
+      <div class="stat-sub">FIL to claim entire pool</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Implied USDFC/FIL</div>
+      <div class="stat-value" id="s-rate">—</div>
+      <div class="stat-sub" id="ss-rate">vs FIL market rate</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Auction age</div>
+      <div class="stat-value" id="s-age">—</div>
+      <div class="stat-sub" id="ss-age">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">All-time FIL burned</div>
+      <div class="stat-value" id="s-burned">—</div>
+      <div class="stat-sub" id="ss-burned">via auction</div>
+    </div>
+  </div>
+
+  <!-- MAIN CARD -->
+  <div class="main-card">
+    <div class="main-card-inner">
+
+      <!-- PRICE DECAY -->
+      <div class="decay-side">
+        <h2>Price decay</h2>
+        <div class="decay-track">
+          <div class="decay-fill" id="decay-fill" style="width:100%"></div>
+        </div>
+        <div class="decay-axis">
+          <span>Auction start (max price)</span>
+          <span>halves every 3.5 days</span>
+          <span>→ 0</span>
+        </div>
+
+        <div class="price-display">
+          <div class="label">Current bid price</div>
+          <div class="value" id="price-big">—<span class="unit">FIL</span></div>
+        </div>
+        <div class="price-meta" id="price-meta">—</div>
+        <div id="verdict-wrap"></div>
+      </div>
+
+      <!-- AUCTION INFO -->
+      <div class="info-side">
+        <h2>Current auction</h2>
+        <div class="info-row">
+          <span class="info-key">USDFC pool</span>
+          <span class="info-val yellow" id="i-pool">—</span>
+        </div>
+        <div class="info-row">
+          <span class="info-key">Start price</span>
+          <span class="info-val" id="i-start">—</span>
+        </div>
+        <div class="info-row">
+          <span class="info-key">Started</span>
+          <span class="info-val" id="i-started">—</span>
+        </div>
+        <div class="info-row">
+          <span class="info-key">Halvings elapsed</span>
+          <span class="info-val" id="i-halvings">—</span>
+        </div>
+        <div class="info-row">
+          <span class="info-key">Price decay</span>
+          <span class="info-val" id="i-decay">—</span>
+        </div>
+        <div class="info-row">
+          <span class="info-key">Network fee</span>
+          <span class="info-val">0.50%</span>
+        </div>
+        <div class="info-row">
+          <span class="info-key">Sybil fee / dataset</span>
+          <span class="info-val">0.1 USDFC</span>
+        </div>
+        <div class="info-row">
+          <span class="info-key">Reset factor (after bid)</span>
+          <span class="info-val">4×</span>
+        </div>
+        <div class="info-row">
+          <span class="info-key">Halving interval</span>
+          <span class="info-val">3.5 days</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- BOTTOM GRID -->
+  <div class="bottom-grid">
+
+    <!-- HISTORY TABLE -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Auction history</span>
+        <span class="panel-sub" id="hist-sub">all-time · mainnet</span>
+      </div>
+      <div id="hist-wrap">
+        <div class="loading"><div class="spinner"></div>Loading...</div>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div class="right-col">
+
+      <!-- CHART -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Pool per auction</span>
+          <span class="panel-sub">USDFC claimed</span>
+        </div>
+        <div class="chart-body">
+          <div class="bars" id="chart-bars">
+            <div class="loading"><div class="spinner"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- HALVINGS TIMELINE -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Price halvings</span>
+          <span class="panel-sub">this auction</span>
+        </div>
+        <div class="halvings-body" id="halvings-wrap">
+          <div class="loading"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+const FOC    = 'https://foc-observer.va.gg';
+const USDFC  = '0x80B98d3aa09ffff255c3ba4A241111Ff1262F045';
+const HALVING = 302400; // 3.5 days in seconds
+
+let state   = null;
+let filUSD  = null;
+
+function timeAgo(ts) {
+  const s = Math.floor(Date.now()/1000 - ts);
+  if (s < 60)    return s + 's ago';
+  if (s < 3600)  return Math.floor(s/60) + 'm ago';
+  if (s < 86400) return Math.floor(s/3600) + 'h ' + Math.floor((s%3600)/60) + 'm ago';
+  return Math.floor(s/86400) + 'd ' + Math.floor((s%86400)/3600) + 'h ago';
+}
+function fmtDate(ts) {
+  return new Date(ts*1000).toLocaleString('en', {
+    month: 'short', day: 'numeric',
+    hour: '2-digit', minute: '2-digit'
+  });
+}
+function currentPrice(startPrice, startTime) {
+  const elapsed  = Date.now()/1000 - startTime;
+  const halvings = elapsed / HALVING;
+  return parseFloat(startPrice) / Math.pow(2, halvings) / 1e18;
+}
+
+async function fetchFILPrice() {
+  try {
+    const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=filecoin&vs_currencies=usd');
+    filUSD = (await r.json())?.filecoin?.usd || null;
+  } catch(e) { filUSD = null; }
+}
+
+function tick() {
+  if (!state) return;
+  const { startPrice, startTime, accumulatedFees } = state;
+  const price    = currentPrice(startPrice, startTime);
+  const pool     = parseFloat(accumulatedFees) / 1e18;
+  const halvings = (Date.now()/1000 - startTime) / HALVING;
+  const decayPct = Math.max(1, 100 - halvings / 8 * 100);
+  const implied  = pool > 0 && price > 0 ? pool / price : 0;
+
+  // stat row
+  document.getElementById('s-price').textContent = price.toFixed(4) + ' FIL';
+  document.getElementById('s-age').textContent   = timeAgo(startTime);
+
+  // big price
+  document.getElementById('price-big').innerHTML =
+    price.toFixed(6) + '<span class="unit">FIL</span>';
+  document.getElementById('price-meta').textContent =
+    halvings.toFixed(3) + ' halvings elapsed · ' +
+    (halvings < 1 ? 'less than one halving' : (halvings < 2 ? 'between 1–2 halvings' : halvings.toFixed(1) + ' halvings'));
+
+  // decay bar
+  document.getElementById('decay-fill').style.width = decayPct.toFixed(1) + '%';
+
+  // info rows
+  document.getElementById('i-halvings').textContent = halvings.toFixed(4);
+  document.getElementById('i-decay').textContent =
+    ((1 - price / (parseFloat(startPrice)/1e18)) * 100).toFixed(2) + '% from start';
+
+  // implied rate + verdict
+  document.getElementById('s-rate').textContent = implied > 0 ? implied.toFixed(3) : '—';
+  const rateEl = document.getElementById('s-rate');
+
+  if (filUSD && implied > 0) {
+    const pnlPct = (implied / filUSD - 1) * 100;
+    document.getElementById('ss-rate').textContent = 'market: $' + filUSD.toFixed(2) + '/FIL';
+
+    let cls, txt;
+    if (pnlPct >= 5) {
+      cls = 'green'; rateEl.className = 'stat-value green';
+      txt = '<div class="verdict good">✓ Profitable — ' + pnlPct.toFixed(1) + '% above market</div>';
+    } else if (pnlPct >= -5) {
+      cls = 'yellow'; rateEl.className = 'stat-value yellow';
+      txt = '<div class="verdict neutral">~ Break-even (' + (pnlPct >= 0 ? '+' : '') + pnlPct.toFixed(1) + '% vs market)</div>';
+    } else {
+      cls = 'red'; rateEl.className = 'stat-value red';
+      txt = '<div class="verdict wait">✗ Wait — ' + pnlPct.toFixed(1) + '% below market</div>';
+    }
+    document.getElementById('verdict-wrap').innerHTML = txt;
+  }
+
+  document.getElementById('last-update').textContent = 'Updated ' + new Date().toLocaleTimeString();
+}
+
+async function loadAuction() {
+  const d = await (await fetch(FOC + '/auction/mainnet/' + USDFC)).json();
+  state = d;
+
+  const pool      = parseFloat(d.accumulatedFees) / 1e18;
+  const startPrice = parseFloat(d.startPrice) / 1e18;
+  const startTime  = parseInt(d.startTime);
+
+  document.getElementById('s-pool').textContent    = pool.toFixed(4) + ' USDFC';
+  document.getElementById('ss-pool').textContent   = '≈ $' + pool.toFixed(2) + ' at peg';
+  document.getElementById('ss-age').textContent    = 'started ' + fmtDate(startTime);
+  document.getElementById('i-pool').textContent    = pool.toFixed(6) + ' USDFC';
+  document.getElementById('i-start').textContent   = startPrice.toFixed(4) + ' FIL';
+  document.getElementById('i-started').textContent = fmtDate(startTime);
+
+  // halvings timeline
+  const colors = ['#16a34a','#84cc16','#d97706','#ea580c','#dc2626'];
+  const now = Date.now()/1000;
+  const rows = [0.5, 1, 2, 3, 4].map((h, i) => {
+    const price  = startPrice / Math.pow(2, h);
+    const timeAt = startTime + h * HALVING;
+    const past   = timeAt < now;
+    return `<div class="hv-row">
+      <div class="hv-dot" style="background:${past ? colors[i] : '#e5e7eb'}"></div>
+      <span class="hv-label">${h === 0.5 ? '½' : h}× halving</span>
+      <span class="hv-date">${past ? timeAgo(timeAt) : fmtDate(timeAt)}</span>
+      <span class="hv-price">${price.toFixed(4)} FIL</span>
+    </div>`;
+  });
+  document.getElementById('halvings-wrap').innerHTML = rows.join('');
+
+  tick();
+}
+
+async function loadHistory() {
+  const r = await fetch(FOC + '/sql', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      sql: `SELECT timestamp, requested_amount/1e18 as usdfc,
+                   fil_burned/1e18 as fil, caller, tx_hash
+            FROM fp_burn_for_fees ORDER BY timestamp DESC`,
+      network: 'mainnet'
+    })
+  });
+  const d = await r.json();
+  if (!d.rows?.length) return;
+
+  const totalUSDFC = d.rows.reduce((s,r) => s + parseFloat(r.usdfc), 0);
+  const totalFIL   = d.rows.reduce((s,r) => s + parseFloat(r.fil), 0);
+  document.getElementById('s-burned').textContent  = totalFIL.toFixed(2) + ' FIL';
+  document.getElementById('ss-burned').textContent = totalUSDFC.toFixed(2) + ' USDFC claimed all-time';
+  document.getElementById('hist-sub').textContent  = d.rows.length + ' auctions · all-time';
+
+  const rows = d.rows.map(r => {
+    const usdfc = parseFloat(r.usdfc), fil = parseFloat(r.fil);
+    const rate  = usdfc / fil;
+    let cls = '';
+    if (filUSD) {
+      const p = (rate/filUSD - 1)*100;
+      cls = p >= 5 ? 'good' : p >= -5 ? 'neutral' : 'bad';
+    }
+    return `<tr>
+      <td>${fmtDate(parseInt(r.timestamp))}</td>
+      <td class="mono">${usdfc.toFixed(4)}</td>
+      <td class="mono">${fil.toFixed(4)}</td>
+      <td class="${cls}">${rate.toFixed(3)}</td>
+      <td style="font-size:12px;color:var(--text-3)">${r.caller.slice(0,6)}…${r.caller.slice(-4)}</td>
+      <td><a class="tx-link" href="https://filecoin.blockscout.com/tx/${r.tx_hash}" target="_blank">View ↗</a></td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('hist-wrap').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Date</th><th>USDFC claimed</th><th>FIL burned</th>
+        <th>Rate (USDFC/FIL)</th><th>Caller</th><th>Tx</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+
+  // chart
+  const last12 = [...d.rows].reverse().slice(-12);
+  const maxU   = Math.max(...last12.map(r => parseFloat(r.usdfc)));
+  const bars   = last12.map((r, i) => {
+    const u  = parseFloat(r.usdfc);
+    const h  = Math.max(4, u/maxU*88);
+    const dt = new Date(parseInt(r.timestamp)*1000);
+    const lbl = (dt.getMonth()+1) + '/' + dt.getDate();
+    const pct = i / Math.max(1, last12.length-1);
+    const opacity = 0.5 + pct*0.5;
+    return `<div class="bw">
+      <div class="bv">${u.toFixed(1)}</div>
+      <div class="bb" style="height:${h}px;opacity:${opacity}"></div>
+      <div class="bl">${lbl}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('chart-bars').innerHTML = bars;
+}
+
+async function loadAll() {
+  document.getElementById('last-update').textContent = 'Loading...';
+  await Promise.allSettled([fetchFILPrice(), loadAuction()]);
+  loadHistory();
+}
+
+loadAll();
+setInterval(tick, 10000);
+setInterval(loadAll, 120000);
+</script>
+</body>
+</html>
